@@ -8,41 +8,49 @@ body {
   font-family: "Courier New", monospace;
   background: linear-gradient(135deg, #1a1a2e, #16213e);
   color: #fff;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
+  margin: 0;
+  padding: 5px;
+  height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .game-container {
   background: #000;
   border: 3px solid #fff;
   border-radius: 10px;
-  padding: 20px;
+  padding: 10px;
   box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+  max-width: 100%;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;
 }
 
 .header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
   background: #333;
-  padding: 15px;
+  padding: 8px;
   border-radius: 5px;
   border: 2px solid #666;
+  flex-shrink: 0;
 }
 
 .header h1 {
-  font-size: 2.5em;
+  font-size: 1.8em;
   color: #ffff00;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .score {
   display: flex;
   justify-content: space-around;
-  font-size: 1.2em;
+  font-size: 0.9em;
   color: #fff;
 }
 
@@ -57,7 +65,9 @@ body {
   position: relative;
   display: flex;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
+  flex-grow: 1;
+  align-items: center;
 }
 
 #gameCanvas {
@@ -66,26 +76,40 @@ body {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
   background: #333;
-  padding: 15px;
+  padding: 8px;
   border-radius: 5px;
   border: 2px solid #666;
+  flex-shrink: 0;
 }
 
-.control-info h3 {
+.control-info h3, .terrain-info h3 {
   color: #ffff00;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+  font-size: 0.9em;
 }
 
-.control-info p {
-  margin: 5px 0;
-  font-size: 0.9em;
+.control-info p, .terrain-info p {
+  margin: 2px 0;
+  font-size: 0.75em;
+  line-height: 1.1;
+}
+
+.terrain-info {
+  text-align: left;
+}
+
+.terrain-info span {
+  font-weight: bold;
+  font-size: 1.1em;
 }
 
 .game-status {
@@ -157,6 +181,18 @@ body {
 
 .wall-steel {
   background: #c0c0c0;
+}
+
+.wall-water {
+  background: #4169e1;
+}
+
+.wall-forest {
+  background: #228b22;
+}
+
+.wall-concrete {
+  background: #696969;
 }
 
 .powerup {

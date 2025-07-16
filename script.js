@@ -2,7 +2,7 @@ class Tank1990Game {
   constructor() {
     this.canvas = document.getElementById("gameCanvas");
     this.ctx = this.canvas.getContext("2d");
-    this.canvas.width = 640;  // Smaller field
+    this.canvas.width = 640; // Smaller field
     this.canvas.height = 640; // Smaller field
 
     // Game state
@@ -32,7 +32,7 @@ class Tank1990Game {
     // Enemy spawning - Updated for smaller grid
     this.enemySpawnPoints = [
       { x: 0, y: 0 },
-      { x: 7, y: 0 },  // Center top
+      { x: 7, y: 0 }, // Center top
       { x: 14, y: 0 }, // Right top
     ];
     this.enemySpawnTimer = 0;
@@ -53,8 +53,8 @@ class Tank1990Game {
 
   createPlayer() {
     this.player = {
-      x: 7 * this.tileSize,  // Center horizontally for 16-wide grid
-      y: 14 * this.tileSize, // Near bottom for 16-tall grid
+      x: 7 * this.tileSize, // Center horizontally for 16-wide grid  
+      y: 13 * this.tileSize, // Move up one tile from bottom border
       width: this.tileSize,
       height: this.tileSize,
       direction: 0, // 0: up, 1: right, 2: down, 3: left
@@ -67,7 +67,7 @@ class Tank1990Game {
   generateLevel() {
     this.walls = [];
 
-    // Create border walls
+    // Create border walls (indestructible steel)
     for (let x = 0; x < this.gridWidth; x++) {
       this.walls.push({ x: x * this.tileSize, y: 0, type: "steel" });
       this.walls.push({
@@ -85,26 +85,41 @@ class Tank1990Game {
       });
     }
 
-    // Add some random brick walls - Fewer walls for smaller grid
-    for (let i = 0; i < 20 + this.level * 5; i++) {
+    // Add varied terrain types
+    for (let i = 0; i < 30 + this.level * 8; i++) {
       let x = Math.floor(Math.random() * (this.gridWidth - 4)) + 2;
       let y = Math.floor(Math.random() * (this.gridHeight - 4)) + 2;
 
-      // Don't place walls near player spawn or enemy spawn points
-      // Updated for 16x16 grid
+      // Don't place terrain near player spawn or enemy spawn points
       if (
-        (x >= 6 && x <= 8 && y >= 12) ||  // Player area
-        (x <= 2 && y <= 2) ||             // Top-left enemy spawn
-        (x >= 6 && x <= 8 && y <= 2) ||   // Top-center enemy spawn
-        (x >= 12 && y <= 2)               // Top-right enemy spawn
+        (x >= 6 && x <= 8 && y >= 12) || // Player area
+        (x <= 2 && y <= 2) || // Top-left enemy spawn
+        (x >= 6 && x <= 8 && y <= 2) || // Top-center enemy spawn
+        (x >= 12 && y <= 2) // Top-right enemy spawn
       ) {
         continue;
+      }
+
+      // Random terrain type selection
+      const terrainTypes = ["brick", "steel", "water", "forest", "concrete"];
+      const weights = [40, 15, 10, 20, 15]; // Percentage chance for each type
+      
+      let randomValue = Math.random() * 100;
+      let cumulativeWeight = 0;
+      let selectedType = "brick";
+      
+      for (let j = 0; j < terrainTypes.length; j++) {
+        cumulativeWeight += weights[j];
+        if (randomValue <= cumulativeWeight) {
+          selectedType = terrainTypes[j];
+          break;
+        }
       }
 
       this.walls.push({
         x: x * this.tileSize,
         y: y * this.tileSize,
-        type: "brick",
+        type: selectedType,
       });
     }
   }
@@ -124,7 +139,7 @@ class Tank1990Game {
     let canSpawn = true;
 
     // Check if spawn point has any walls
-    if (!this.canMoveTo(spawnX, spawnY, this.tileSize, this.tileSize)) {
+    if (!this.canMoveTo(spawnX, spawnY, this.tileSize, this.tileSize, null)) {
       canSpawn = false;
     }
 
@@ -168,6 +183,11 @@ class Tank1990Game {
 
   setupEventListeners() {
     document.addEventListener("keydown", (e) => {
+      // Prevent default browser behavior for arrow keys and spacebar
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+      
       this.keys[e.code] = true;
 
       if (e.code === "KeyR") {
@@ -175,7 +195,6 @@ class Tank1990Game {
       }
 
       if (e.code === "Space") {
-        e.preventDefault();
         if (
           document.getElementById("levelComplete").classList.contains("hidden")
         ) {
@@ -187,6 +206,11 @@ class Tank1990Game {
     });
 
     document.addEventListener("keyup", (e) => {
+      // Prevent default browser behavior for arrow keys
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+      
       this.keys[e.code] = false;
     });
   }
@@ -258,12 +282,12 @@ class Tank1990Game {
       moved = true;
     }
 
-    if (
-      moved &&
-      this.canMoveTo(newX, newY, this.player.width, this.player.height)
-    ) {
-      this.player.x = newX;
-      this.player.y = newY;
+    if (moved) {
+      const canMove = this.canMoveTo(newX, newY, this.player.width, this.player.height, this.player);
+      if (canMove) {
+        this.player.x = newX;
+        this.player.y = newY;
+      }
     }
   }
 
@@ -324,7 +348,7 @@ class Tank1990Game {
           break;
       }
 
-      if (this.canMoveTo(newX, newY, enemy.width, enemy.height)) {
+      if (this.canMoveTo(newX, newY, enemy.width, enemy.height, enemy)) {
         enemy.x = newX;
         enemy.y = newY;
       } else {
@@ -366,11 +390,35 @@ class Tank1990Game {
       for (let j = this.walls.length - 1; j >= 0; j--) {
         let wall = this.walls[j];
         if (this.collision(bullet, wall)) {
-          if (wall.type === "brick") {
-            this.walls.splice(j, 1);
+          // Different terrain types react differently to bullets
+          switch (wall.type) {
+            case "brick":
+              // Brick walls are destructible
+              this.walls.splice(j, 1);
+              hit = true;
+              break;
+            case "steel":
+              // Steel walls are indestructible
+              hit = true;
+              break;
+            case "concrete":
+              // Concrete walls are indestructible but can be shot
+              hit = true;
+              break;
+            case "water":
+              // Water cannot be shot through
+              hit = true;
+              break;
+            case "forest":
+              // Bullets pass through forest, but forest gets damaged
+              if (Math.random() < 0.3) { // 30% chance to destroy forest
+                this.walls.splice(j, 1);
+              }
+              // Bullet continues through forest
+              break;
           }
-          hit = true;
-          break;
+          
+          if (hit) break;
         }
       }
 
@@ -408,13 +456,13 @@ class Tank1990Game {
   shoot(tank) {
     if (Date.now() - this.lastShot < this.shotCooldown) return;
 
-    let bulletX = tank.x + tank.width / 2 - 4;  // Bigger bullet
+    let bulletX = tank.x + tank.width / 2 - 4; // Bigger bullet
     let bulletY = tank.y + tank.height / 2 - 4; // Bigger bullet
 
     // Adjust bullet position based on direction
     switch (tank.direction) {
       case 0:
-        bulletY = tank.y - 8;  // Bigger offset
+        bulletY = tank.y - 8; // Bigger offset
         break;
       case 1:
         bulletX = tank.x + tank.width;
@@ -423,17 +471,17 @@ class Tank1990Game {
         bulletY = tank.y + tank.height;
         break;
       case 3:
-        bulletX = tank.x - 8;  // Bigger offset
+        bulletX = tank.x - 8; // Bigger offset
         break;
     }
 
     this.bullets.push({
       x: bulletX,
       y: bulletY,
-      width: 8,   // Bigger bullet
-      height: 8,  // Bigger bullet
+      width: 8, // Bigger bullet
+      height: 8, // Bigger bullet
       direction: tank.direction,
-      speed: 6,   // Slightly faster
+      speed: 6, // Slightly faster
       owner: tank === this.player ? "player" : "enemy",
       color: "#ffff00",
     });
@@ -441,9 +489,9 @@ class Tank1990Game {
     this.lastShot = Date.now();
   }
 
-  canMoveTo(x, y, width, height) {
-    // Add a small buffer to prevent getting stuck at exact boundaries
-    const buffer = 1;
+  canMoveTo(x, y, width, height, excludeTank = null) {
+    // Reduce buffer to allow movement closer to walls
+    const buffer = 0;
 
     // Check canvas bounds with buffer
     if (
@@ -455,30 +503,28 @@ class Tank1990Game {
       return false;
     }
 
-    // Check wall collision
+    // Check wall collision - different terrain types have different movement rules
     let testObj = { x, y, width, height };
     for (let wall of this.walls) {
       if (this.collision(testObj, wall)) {
-        return false;
+        // Forest can be driven through, water and solid walls cannot
+        if (wall.type === "forest") {
+          continue; // Can drive through forest
+        }
+        return false; // Cannot drive through other terrain types
       }
     }
 
     // Check collision with other tanks (prevent tanks from overlapping)
-    if (this.player && this.player.alive) {
-      if (
-        this.collision(testObj, this.player) &&
-        !(testObj.x === this.player.x && testObj.y === this.player.y)
-      ) {
+    // But exclude the tank that's trying to move
+    if (this.player && this.player.alive && excludeTank !== this.player) {
+      if (this.collision(testObj, this.player)) {
         return false;
       }
     }
 
     for (let enemy of this.enemies) {
-      if (
-        enemy.alive &&
-        this.collision(testObj, enemy) &&
-        !(testObj.x === enemy.x && testObj.y === enemy.y)
-      ) {
+      if (enemy.alive && excludeTank !== enemy && this.collision(testObj, enemy)) {
         return false;
       }
     }
@@ -504,15 +550,84 @@ class Tank1990Game {
     this.ctx.fillStyle = "#2d2d2d";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Draw walls
+    // Draw walls with different terrain types
     for (let wall of this.walls) {
-      this.ctx.fillStyle = wall.type === "brick" ? "#8B4513" : "#C0C0C0";
+      // Set colors based on terrain type
+      switch (wall.type) {
+        case "brick":
+          this.ctx.fillStyle = "#8B4513"; // Brown brick
+          break;
+        case "steel":
+          this.ctx.fillStyle = "#C0C0C0"; // Silver steel
+          break;
+        case "water":
+          this.ctx.fillStyle = "#4169E1"; // Blue water
+          break;
+        case "forest":
+          this.ctx.fillStyle = "#228B22"; // Green forest
+          break;
+        case "concrete":
+          this.ctx.fillStyle = "#696969"; // Dark gray concrete
+          break;
+        default:
+          this.ctx.fillStyle = "#8B4513"; // Default to brick
+      }
+      
       this.ctx.fillRect(wall.x, wall.y, this.tileSize, this.tileSize);
 
-      // Add texture
-      this.ctx.strokeStyle = wall.type === "brick" ? "#654321" : "#A0A0A0";
+      // Add texture/pattern based on terrain type
+      this.ctx.strokeStyle = "#000";
       this.ctx.lineWidth = 1;
-      this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
+      
+      switch (wall.type) {
+        case "brick":
+          // Brick pattern
+          this.ctx.strokeStyle = "#654321";
+          this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
+          this.ctx.strokeRect(wall.x, wall.y + this.tileSize/2, this.tileSize, this.tileSize/2);
+          break;
+          
+        case "steel":
+          // Steel pattern with bolts
+          this.ctx.strokeStyle = "#A0A0A0";
+          this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
+          this.ctx.fillStyle = "#808080";
+          this.ctx.fillRect(wall.x + 5, wall.y + 5, 4, 4);
+          this.ctx.fillRect(wall.x + this.tileSize - 9, wall.y + 5, 4, 4);
+          this.ctx.fillRect(wall.x + 5, wall.y + this.tileSize - 9, 4, 4);
+          this.ctx.fillRect(wall.x + this.tileSize - 9, wall.y + this.tileSize - 9, 4, 4);
+          break;
+          
+        case "water":
+          // Water wave pattern
+          this.ctx.strokeStyle = "#1E90FF";
+          this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
+          this.ctx.beginPath();
+          this.ctx.moveTo(wall.x, wall.y + this.tileSize/3);
+          this.ctx.quadraticCurveTo(wall.x + this.tileSize/2, wall.y + this.tileSize/6, wall.x + this.tileSize, wall.y + this.tileSize/3);
+          this.ctx.stroke();
+          break;
+          
+        case "forest":
+          // Forest tree pattern
+          this.ctx.strokeStyle = "#006400";
+          this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
+          this.ctx.fillStyle = "#32CD32";
+          this.ctx.fillRect(wall.x + 8, wall.y + 8, 8, 8);
+          this.ctx.fillRect(wall.x + 20, wall.y + 15, 8, 8);
+          this.ctx.fillRect(wall.x + 15, wall.y + 25, 6, 6);
+          break;
+          
+        case "concrete":
+          // Concrete pattern
+          this.ctx.strokeStyle = "#2F4F4F";
+          this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
+          this.ctx.strokeRect(wall.x + 10, wall.y + 10, this.tileSize - 20, this.tileSize - 20);
+          break;
+          
+        default:
+          this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
+      }
     }
 
     // Draw player
@@ -573,8 +688,8 @@ class Tank1990Game {
   }
 
   respawnPlayer() {
-    this.player.x = 7 * this.tileSize;  // Center horizontally for 16-wide grid
-    this.player.y = 14 * this.tileSize; // Near bottom for 16-tall grid
+    this.player.x = 7 * this.tileSize; // Center horizontally for 16-wide grid
+    this.player.y = 13 * this.tileSize; // Move up one tile from bottom border
     this.player.alive = true;
     this.player.direction = 0;
     this.updateUI();
@@ -645,7 +760,7 @@ class Tank1990Game {
           break; // left
       }
 
-      if (this.canMoveTo(testX, testY, enemy.width, enemy.height)) {
+      if (this.canMoveTo(testX, testY, enemy.width, enemy.height, enemy)) {
         validDirections.push(dir);
       }
     }
@@ -671,7 +786,7 @@ class Tank1990Game {
             break;
         }
 
-        if (this.canMoveTo(testX, testY, enemy.width, enemy.height)) {
+        if (this.canMoveTo(testX, testY, enemy.width, enemy.height, enemy)) {
           validDirections.push(dir);
         }
       }
