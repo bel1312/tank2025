@@ -91,13 +91,15 @@ body {
   flex-shrink: 0;
 }
 
-.control-info h3, .terrain-info h3 {
+.control-info h3,
+.terrain-info h3 {
   color: #ffff00;
   margin-bottom: 6px;
   font-size: 0.9em;
 }
 
-.control-info p, .terrain-info p {
+.control-info p,
+.terrain-info p {
   margin: 2px 0;
   font-size: 0.75em;
   line-height: 1.1;

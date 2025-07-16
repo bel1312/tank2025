@@ -29,14 +29,14 @@ class Tank1990Game {
     this.lastShot = 0;
     this.shotCooldown = 250; // milliseconds
 
-    // Enemy spawning - Updated for smaller grid
+    // Enemy spawning - Updated for smaller grid, spawn inside borders
     this.enemySpawnPoints = [
-      { x: 0, y: 0 },
-      { x: 7, y: 0 }, // Center top
-      { x: 14, y: 0 }, // Right top
+      { x: 1, y: 1 }, // Top-left inside border
+      { x: 7, y: 1 }, // Center top inside border
+      { x: 14, y: 1 }, // Right top inside border
     ];
     this.enemySpawnTimer = 0;
-    this.enemySpawnDelay = 2000;
+    this.enemySpawnDelay = 1000; // Faster spawning
 
     this.initGame();
     this.setupEventListeners();
@@ -46,14 +46,22 @@ class Tank1990Game {
   initGame() {
     this.createPlayer();
     this.generateLevel();
-    this.enemyTanksRemaining = 4 + this.level;
+    this.enemyTanksRemaining = 20; // Always 20 enemies per level
+    this.enemiesKilled = 0;
+    this.maxEnemiesOnField = Math.min(4 + this.level, 5); // 4-5 max on field
     this.gameRunning = true;
+
+    // Force spawn initial enemies
+    for (let i = 0; i < Math.min(3, this.maxEnemiesOnField); i++) {
+      this.spawnEnemy();
+    }
+
     this.updateUI();
   }
 
   createPlayer() {
     this.player = {
-      x: 7 * this.tileSize, // Center horizontally for 16-wide grid  
+      x: 7 * this.tileSize, // Center horizontally for 16-wide grid
       y: 13 * this.tileSize, // Move up one tile from bottom border
       width: this.tileSize,
       height: this.tileSize,
@@ -91,11 +99,12 @@ class Tank1990Game {
       let y = Math.floor(Math.random() * (this.gridHeight - 4)) + 2;
 
       // Don't place terrain near player spawn or enemy spawn points
+      // Updated for 16x16 grid - more restrictive around spawn areas
       if (
         (x >= 6 && x <= 8 && y >= 12) || // Player area
-        (x <= 2 && y <= 2) || // Top-left enemy spawn
-        (x >= 6 && x <= 8 && y <= 2) || // Top-center enemy spawn
-        (x >= 12 && y <= 2) // Top-right enemy spawn
+        (x <= 3 && y <= 3) || // Top-left enemy spawn area (expanded)
+        (x >= 5 && x <= 9 && y <= 3) || // Top-center enemy spawn area (expanded)
+        (x >= 12 && y <= 3) // Top-right enemy spawn area (expanded)
       ) {
         continue;
       }
@@ -103,11 +112,11 @@ class Tank1990Game {
       // Random terrain type selection
       const terrainTypes = ["brick", "steel", "water", "forest", "concrete"];
       const weights = [40, 15, 10, 20, 15]; // Percentage chance for each type
-      
+
       let randomValue = Math.random() * 100;
       let cumulativeWeight = 0;
       let selectedType = "brick";
-      
+
       for (let j = 0; j < terrainTypes.length; j++) {
         cumulativeWeight += weights[j];
         if (randomValue <= cumulativeWeight) {
@@ -125,69 +134,148 @@ class Tank1990Game {
   }
 
   spawnEnemy() {
-    if (this.enemies.length >= 3 || this.enemyTanksRemaining <= 0) return;
+    if (
+      this.enemies.length >= this.maxEnemiesOnField ||
+      this.enemyTanksRemaining <= 0
+    )
+      return;
 
-    const spawnPoint =
-      this.enemySpawnPoints[
-        Math.floor(Math.random() * this.enemySpawnPoints.length)
-      ];
+    // Try multiple spawn points if first one fails
+    for (let attempt = 0; attempt < this.enemySpawnPoints.length; attempt++) {
+      const spawnPoint = this.enemySpawnPoints[attempt];
+      const spawnX = spawnPoint.x * this.tileSize;
+      const spawnY = spawnPoint.y * this.tileSize;
 
-    // Check if spawn point is clear
-    const spawnX = spawnPoint.x * this.tileSize;
-    const spawnY = spawnPoint.y * this.tileSize;
+      let canSpawn = true;
 
-    let canSpawn = true;
-
-    // Check if spawn point has any walls
-    if (!this.canMoveTo(spawnX, spawnY, this.tileSize, this.tileSize, null)) {
-      canSpawn = false;
-    }
-
-    // Check distance from other enemies
-    for (let enemy of this.enemies) {
-      if (this.distance(enemy.x, enemy.y, spawnX, spawnY) < this.tileSize * 2) {
+      // Check if spawn point has any walls - simplified check
+      if (!this.canMoveTo(spawnX, spawnY, this.tileSize, this.tileSize, null)) {
         canSpawn = false;
-        break;
+      }
+
+      // Check distance from other enemies - simplified
+      for (let enemy of this.enemies) {
+        if (
+          this.distance(enemy.x, enemy.y, spawnX, spawnY) <
+          this.tileSize * 1.5
+        ) {
+          canSpawn = false;
+          break;
+        }
+      }
+
+      // Check distance from player - simplified
+      if (this.player && this.player.alive) {
+        if (
+          this.distance(this.player.x, this.player.y, spawnX, spawnY) <
+          this.tileSize * 2
+        ) {
+          canSpawn = false;
+        }
+      }
+
+      if (canSpawn) {
+        // Create different enemy types
+        const enemyType = this.getRandomEnemyType();
+
+        const newEnemy = {
+          x: spawnX,
+          y: spawnY,
+          width: this.tileSize,
+          height: this.tileSize,
+          direction: Math.floor(Math.random() * 4),
+          speed: enemyType.speed,
+          alive: true,
+          color: enemyType.color,
+          type: enemyType.name,
+          maxHealth: enemyType.health,
+          health: enemyType.health,
+          shootCooldown: enemyType.shootCooldown,
+          lastDirectionChange: Date.now(),
+          lastShot: 0,
+          stuckCounter: 0,
+          lastPosition: { x: spawnX, y: spawnY },
+          aggressiveness: enemyType.aggressiveness,
+        };
+
+        this.enemies.push(newEnemy);
+        this.enemyTanksRemaining--;
+        console.log(
+          `Spawned ${enemyType.name} enemy at (${spawnX}, ${spawnY}). Total enemies: ${this.enemies.length}`
+        );
+        return; // Successfully spawned, exit function
       }
     }
 
-    // Check distance from player
-    if (this.player && this.player.alive) {
-      if (
-        this.distance(this.player.x, this.player.y, spawnX, spawnY) <
-        this.tileSize * 3
-      ) {
-        canSpawn = false;
+    // If we get here, no spawn point was available
+    console.log("No valid spawn points available");
+  }
+
+  getRandomEnemyType() {
+    const enemyTypes = [
+      {
+        name: "light",
+        health: 1,
+        speed: 1.5,
+        color: "#FF6B6B", // Light red
+        shootCooldown: 1200,
+        aggressiveness: 0.7, // 70% chance to move toward player
+        weight: 40, // 40% spawn chance
+      },
+      {
+        name: "medium",
+        health: 2,
+        speed: 1.0,
+        color: "#FF4444", // Medium red
+        shootCooldown: 1000,
+        aggressiveness: 0.5,
+        weight: 30, // 30% spawn chance
+      },
+      {
+        name: "heavy",
+        health: 3,
+        speed: 0.8,
+        color: "#CC0000", // Dark red
+        shootCooldown: 800,
+        aggressiveness: 0.3,
+        weight: 15, // 15% spawn chance
+      },
+      {
+        name: "fast",
+        health: 1,
+        speed: 2.5,
+        color: "#FF8888", // Pink red
+        shootCooldown: 1500,
+        aggressiveness: 0.8, // Very aggressive
+        weight: 15, // 15% spawn chance
+      },
+    ];
+
+    // Weighted random selection
+    const totalWeight = enemyTypes.reduce((sum, type) => sum + type.weight, 0);
+    let randomValue = Math.random() * totalWeight;
+
+    for (let type of enemyTypes) {
+      randomValue -= type.weight;
+      if (randomValue <= 0) {
+        return type;
       }
     }
 
-    if (canSpawn) {
-      this.enemies.push({
-        x: spawnX,
-        y: spawnY,
-        width: this.tileSize,
-        height: this.tileSize,
-        direction: Math.floor(Math.random() * 4),
-        speed: 1 + Math.random(),
-        alive: true,
-        color: "#ff0000",
-        lastDirectionChange: Date.now(),
-        lastShot: 0,
-        shootCooldown: 1000 + Math.random() * 1000,
-        stuckCounter: 0,
-        lastPosition: { x: spawnX, y: spawnY },
-      });
-      this.enemyTanksRemaining--;
-    }
+    return enemyTypes[0]; // Fallback
   }
 
   setupEventListeners() {
     document.addEventListener("keydown", (e) => {
       // Prevent default browser behavior for arrow keys and spacebar
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+      if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(
+          e.code
+        )
+      ) {
         e.preventDefault();
       }
-      
+
       this.keys[e.code] = true;
 
       if (e.code === "KeyR") {
@@ -207,10 +295,14 @@ class Tank1990Game {
 
     document.addEventListener("keyup", (e) => {
       // Prevent default browser behavior for arrow keys
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+      if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(
+          e.code
+        )
+      ) {
         e.preventDefault();
       }
-      
+
       this.keys[e.code] = false;
     });
   }
@@ -241,7 +333,7 @@ class Tank1990Game {
       this.enemySpawnTimer = Date.now();
     }
 
-    // Check win condition
+    // Check win condition - all 20 enemies defeated
     if (this.enemies.length === 0 && this.enemyTanksRemaining === 0) {
       this.levelComplete();
     }
@@ -283,7 +375,13 @@ class Tank1990Game {
     }
 
     if (moved) {
-      const canMove = this.canMoveTo(newX, newY, this.player.width, this.player.height, this.player);
+      const canMove = this.canMoveTo(
+        newX,
+        newY,
+        this.player.width,
+        this.player.height,
+        this.player
+      );
       if (canMove) {
         this.player.x = newX;
         this.player.y = newY;
@@ -297,7 +395,15 @@ class Tank1990Game {
 
       if (!enemy.alive) {
         this.enemies.splice(i, 1);
-        this.score += 100;
+        this.score +=
+          enemy.type === "heavy"
+            ? 300
+            : enemy.type === "medium"
+            ? 200
+            : enemy.type === "fast"
+            ? 150
+            : 100;
+        this.enemiesKilled++;
         this.updateUI();
         continue;
       }
@@ -319,10 +425,14 @@ class Tank1990Game {
         enemy.lastPosition = { x: enemy.x, y: enemy.y };
       }
 
-      // If stuck for too long, try to find a way out
+      // More frequent direction changes and better AI
+      const directionChangeTime =
+        enemy.type === "fast" ? 800 : enemy.type === "light" ? 1200 : 1500;
+
       if (
-        enemy.stuckCounter > 30 ||
-        Date.now() - enemy.lastDirectionChange > 1000 + Math.random() * 2000
+        enemy.stuckCounter > 20 ||
+        Date.now() - enemy.lastDirectionChange >
+          directionChangeTime + Math.random() * 1000
       ) {
         enemy.direction = this.findBestDirection(enemy);
         enemy.lastDirectionChange = Date.now();
@@ -357,10 +467,23 @@ class Tank1990Game {
         enemy.lastDirectionChange = Date.now();
       }
 
-      // Enemy shooting
+      // More aggressive shooting - enemies shoot while moving
       if (Date.now() - enemy.lastShot > enemy.shootCooldown) {
-        this.shoot(enemy);
-        enemy.lastShot = Date.now();
+        // Higher chance to shoot if player is visible or nearby
+        const playerDistance = this.distance(
+          enemy.x + enemy.width / 2,
+          enemy.y + enemy.height / 2,
+          this.player.x + this.player.width / 2,
+          this.player.y + this.player.height / 2
+        );
+
+        const shouldShoot =
+          playerDistance < this.tileSize * 8 || Math.random() < 0.3;
+
+        if (shouldShoot) {
+          this.shoot(enemy);
+          enemy.lastShot = Date.now();
+        }
       }
     }
   }
@@ -411,13 +534,14 @@ class Tank1990Game {
               break;
             case "forest":
               // Bullets pass through forest, but forest gets damaged
-              if (Math.random() < 0.3) { // 30% chance to destroy forest
+              if (Math.random() < 0.3) {
+                // 30% chance to destroy forest
                 this.walls.splice(j, 1);
               }
               // Bullet continues through forest
               break;
           }
-          
+
           if (hit) break;
         }
       }
@@ -427,7 +551,10 @@ class Tank1990Game {
         if (bullet.owner === "player") {
           for (let enemy of this.enemies) {
             if (this.collision(bullet, enemy)) {
-              enemy.alive = false;
+              enemy.health--;
+              if (enemy.health <= 0) {
+                enemy.alive = false;
+              }
               hit = true;
               break;
             }
@@ -524,7 +651,11 @@ class Tank1990Game {
     }
 
     for (let enemy of this.enemies) {
-      if (enemy.alive && excludeTank !== enemy && this.collision(testObj, enemy)) {
+      if (
+        enemy.alive &&
+        excludeTank !== enemy &&
+        this.collision(testObj, enemy)
+      ) {
         return false;
       }
     }
@@ -572,21 +703,26 @@ class Tank1990Game {
         default:
           this.ctx.fillStyle = "#8B4513"; // Default to brick
       }
-      
+
       this.ctx.fillRect(wall.x, wall.y, this.tileSize, this.tileSize);
 
       // Add texture/pattern based on terrain type
       this.ctx.strokeStyle = "#000";
       this.ctx.lineWidth = 1;
-      
+
       switch (wall.type) {
         case "brick":
           // Brick pattern
           this.ctx.strokeStyle = "#654321";
           this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
-          this.ctx.strokeRect(wall.x, wall.y + this.tileSize/2, this.tileSize, this.tileSize/2);
+          this.ctx.strokeRect(
+            wall.x,
+            wall.y + this.tileSize / 2,
+            this.tileSize,
+            this.tileSize / 2
+          );
           break;
-          
+
         case "steel":
           // Steel pattern with bolts
           this.ctx.strokeStyle = "#A0A0A0";
@@ -595,19 +731,29 @@ class Tank1990Game {
           this.ctx.fillRect(wall.x + 5, wall.y + 5, 4, 4);
           this.ctx.fillRect(wall.x + this.tileSize - 9, wall.y + 5, 4, 4);
           this.ctx.fillRect(wall.x + 5, wall.y + this.tileSize - 9, 4, 4);
-          this.ctx.fillRect(wall.x + this.tileSize - 9, wall.y + this.tileSize - 9, 4, 4);
+          this.ctx.fillRect(
+            wall.x + this.tileSize - 9,
+            wall.y + this.tileSize - 9,
+            4,
+            4
+          );
           break;
-          
+
         case "water":
           // Water wave pattern
           this.ctx.strokeStyle = "#1E90FF";
           this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
           this.ctx.beginPath();
-          this.ctx.moveTo(wall.x, wall.y + this.tileSize/3);
-          this.ctx.quadraticCurveTo(wall.x + this.tileSize/2, wall.y + this.tileSize/6, wall.x + this.tileSize, wall.y + this.tileSize/3);
+          this.ctx.moveTo(wall.x, wall.y + this.tileSize / 3);
+          this.ctx.quadraticCurveTo(
+            wall.x + this.tileSize / 2,
+            wall.y + this.tileSize / 6,
+            wall.x + this.tileSize,
+            wall.y + this.tileSize / 3
+          );
           this.ctx.stroke();
           break;
-          
+
         case "forest":
           // Forest tree pattern
           this.ctx.strokeStyle = "#006400";
@@ -617,14 +763,19 @@ class Tank1990Game {
           this.ctx.fillRect(wall.x + 20, wall.y + 15, 8, 8);
           this.ctx.fillRect(wall.x + 15, wall.y + 25, 6, 6);
           break;
-          
+
         case "concrete":
           // Concrete pattern
           this.ctx.strokeStyle = "#2F4F4F";
           this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
-          this.ctx.strokeRect(wall.x + 10, wall.y + 10, this.tileSize - 20, this.tileSize - 20);
+          this.ctx.strokeRect(
+            wall.x + 10,
+            wall.y + 10,
+            this.tileSize - 20,
+            this.tileSize - 20
+          );
           break;
-          
+
         default:
           this.ctx.strokeRect(wall.x, wall.y, this.tileSize, this.tileSize);
       }
@@ -642,6 +793,11 @@ class Tank1990Game {
       }
     }
 
+    // Debug: Draw enemy count
+    this.ctx.fillStyle = "#FFF";
+    this.ctx.font = "16px monospace";
+    this.ctx.fillText(`Enemies on field: ${this.enemies.length}`, 10, 30);
+
     // Draw bullets
     for (let bullet of this.bullets) {
       this.ctx.fillStyle = bullet.color;
@@ -652,6 +808,31 @@ class Tank1990Game {
   drawTank(tank) {
     this.ctx.fillStyle = tank.color;
     this.ctx.fillRect(tank.x, tank.y, tank.width, tank.height);
+
+    // Draw health indicator for enemies
+    if (tank !== this.player && tank.maxHealth > 1) {
+      const healthBarWidth = tank.width - 4;
+      const healthBarHeight = 4;
+      const healthPercentage = tank.health / tank.maxHealth;
+
+      // Background (red)
+      this.ctx.fillStyle = "#FF0000";
+      this.ctx.fillRect(
+        tank.x + 2,
+        tank.y - 8,
+        healthBarWidth,
+        healthBarHeight
+      );
+
+      // Health (green)
+      this.ctx.fillStyle = "#00FF00";
+      this.ctx.fillRect(
+        tank.x + 2,
+        tank.y - 8,
+        healthBarWidth * healthPercentage,
+        healthBarHeight
+      );
+    }
 
     // Draw tank direction indicator (barrel) - Bigger and more visible
     this.ctx.fillStyle = "#333";
@@ -685,6 +866,26 @@ class Tank1990Game {
     this.ctx.strokeStyle = "#000";
     this.ctx.lineWidth = 3;
     this.ctx.strokeRect(tank.x, tank.y, tank.width, tank.height);
+
+    // Add type indicator for enemies
+    if (tank !== this.player) {
+      this.ctx.fillStyle = "#FFF";
+      this.ctx.font = "12px monospace";
+      this.ctx.textAlign = "center";
+      const typeIndicator =
+        tank.type === "light"
+          ? "L"
+          : tank.type === "medium"
+          ? "M"
+          : tank.type === "heavy"
+          ? "H"
+          : "F";
+      this.ctx.fillText(
+        typeIndicator,
+        tank.x + tank.width / 2,
+        tank.y + tank.height / 2 + 4
+      );
+    }
   }
 
   respawnPlayer() {
@@ -706,7 +907,9 @@ class Tank1990Game {
     this.enemies = [];
     this.bullets = [];
     this.generateLevel();
-    this.enemyTanksRemaining = 4 + this.level;
+    this.enemyTanksRemaining = 20; // Always 20 enemies per level
+    this.enemiesKilled = 0;
+    this.maxEnemiesOnField = Math.min(4 + this.level, 5); // Increase max enemies slightly
     this.gameRunning = true;
     this.updateUI();
   }
@@ -734,6 +937,8 @@ class Tank1990Game {
     document.getElementById("score").textContent = this.score;
     document.getElementById("lives").textContent = this.lives;
     document.getElementById("level").textContent = this.level;
+    document.getElementById("enemies").textContent =
+      this.enemyTanksRemaining + this.enemies.length;
   }
 
   findBestDirection(enemy) {
@@ -793,8 +998,12 @@ class Tank1990Game {
     }
 
     if (validDirections.length > 0) {
-      // Prefer directions that move towards the player (simple AI improvement)
-      if (this.player && this.player.alive) {
+      // Use aggressiveness to determine behavior
+      if (
+        this.player &&
+        this.player.alive &&
+        Math.random() < enemy.aggressiveness
+      ) {
         const playerCenterX = this.player.x + this.player.width / 2;
         const playerCenterY = this.player.y + this.player.height / 2;
         const enemyCenterX = enemy.x + enemy.width / 2;
@@ -807,13 +1016,13 @@ class Tank1990Game {
           let score = 0;
 
           // Give preference to directions that get closer to player
-          if (dir === 0 && playerCenterY < enemyCenterY) score += 2; // up towards player
-          if (dir === 1 && playerCenterX > enemyCenterX) score += 2; // right towards player
-          if (dir === 2 && playerCenterY > enemyCenterY) score += 2; // down towards player
-          if (dir === 3 && playerCenterX < enemyCenterX) score += 2; // left towards player
+          if (dir === 0 && playerCenterY < enemyCenterY) score += 3; // up towards player
+          if (dir === 1 && playerCenterX > enemyCenterX) score += 3; // right towards player
+          if (dir === 2 && playerCenterY > enemyCenterY) score += 3; // down towards player
+          if (dir === 3 && playerCenterX < enemyCenterX) score += 3; // left towards player
 
-          // Add some randomness
-          score += Math.random();
+          // Add some randomness but less for aggressive enemies
+          score += Math.random() * (enemy.aggressiveness < 0.5 ? 2 : 1);
 
           if (score > bestScore) {
             bestScore = score;
