@@ -1,0 +1,164 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Courier New", monospace;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.game-container {
+  background: #000;
+  border: 3px solid #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+  background: #333;
+  padding: 15px;
+  border-radius: 5px;
+  border: 2px solid #666;
+}
+
+.header h1 {
+  font-size: 2.5em;
+  color: #ffff00;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  margin-bottom: 10px;
+}
+
+.score {
+  display: flex;
+  justify-content: space-around;
+  font-size: 1.2em;
+  color: #fff;
+}
+
+.score span {
+  background: #444;
+  padding: 5px 15px;
+  border-radius: 3px;
+  border: 1px solid #666;
+}
+
+.game-area {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+#gameCanvas {
+  border: 3px solid #666;
+  background: #2d2d2d;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #333;
+  padding: 15px;
+  border-radius: 5px;
+  border: 2px solid #666;
+}
+
+.control-info h3 {
+  color: #ffff00;
+  margin-bottom: 10px;
+}
+
+.control-info p {
+  margin: 5px 0;
+  font-size: 0.9em;
+}
+
+.game-status {
+  position: relative;
+}
+
+.game-over,
+.level-complete {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.9);
+  border: 3px solid #ffff00;
+  border-radius: 10px;
+  padding: 30px;
+  text-align: center;
+  z-index: 1000;
+  animation: pulse 1s infinite alternate;
+}
+
+.game-over h2,
+.level-complete h2 {
+  color: #ff0000;
+  font-size: 2.5em;
+  margin-bottom: 15px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.level-complete h2 {
+  color: #00ff00;
+}
+
+.game-over p,
+.level-complete p {
+  font-size: 1.2em;
+  color: #fff;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@keyframes pulse {
+  from {
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+  }
+  to {
+    box-shadow: 0 0 30px rgba(255, 255, 0, 0.8);
+  }
+}
+
+/* Tank and game element styles for reference */
+.tank-player {
+  background: #00ff00;
+}
+
+.tank-enemy {
+  background: #ff0000;
+}
+
+.bullet {
+  background: #ffff00;
+}
+
+.wall-brick {
+  background: #8b4513;
+}
+
+.wall-steel {
+  background: #c0c0c0;
+}
+
+.powerup {
+  background: #ff00ff;
+}

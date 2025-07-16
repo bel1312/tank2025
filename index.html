@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tank 2025</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="game-container">
+      <div class="header">
+        <h1>TANK 2025</h1>
+        <div class="score">
+          <span>Score: <span id="score">0</span></span>
+          <span>Lives: <span id="lives">3</span></span>
+          <span>Level: <span id="level">1</span></span>
+        </div>
+      </div>
+
+      <div class="game-area">
+        <canvas id="gameCanvas" width="640" height="640"></canvas>
+      </div>
+
+      <div class="controls">
+        <div class="control-info">
+          <h3>Controls:</h3>
+          <p>Arrow Keys - Move Tank</p>
+          <p>Spacebar - Shoot</p>
+          <p>R - Restart Game</p>
+        </div>
+        <div class="game-status">
+          <div id="gameOver" class="game-over hidden">
+            <h2>GAME OVER</h2>
+            <p>Press R to restart</p>
+          </div>
+          <div id="levelComplete" class="level-complete hidden">
+            <h2>LEVEL COMPLETE!</h2>
+            <p>Press SPACE to continue</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
