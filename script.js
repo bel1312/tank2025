@@ -24,6 +24,11 @@ class Tank1990Game {
     this.walls = [];
     this.powerUps = [];
 
+    // Power-up system
+    this.powerUpDropChance = 0.3; // 30% chance to drop power-up when enemy dies
+    this.activeBuff = null; // Currently active buff
+    this.buffTimer = 0; // Timer for active buff
+
     // Input handling
     this.keys = {};
     this.playerLastShot = 0; // Separate shooting cooldown for player
@@ -50,92 +55,117 @@ class Tank1990Game {
   initSounds() {
     // Create audio context for sound effects
     const sounds = {};
-    
+
     try {
       // Create simple sound effects using Web Audio API
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
+      const audioContext = new (window.AudioContext ||
+        window.webkitAudioContext)();
+
       // Shooting sound
       sounds.shoot = () => {
         try {
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
-          
+
           oscillator.connect(gainNode);
           gainNode.connect(audioContext.destination);
-          
+
           oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
-          
+          oscillator.frequency.exponentialRampToValueAtTime(
+            200,
+            audioContext.currentTime + 0.1
+          );
+
           gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-          
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioContext.currentTime + 0.1
+          );
+
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.1);
         } catch (e) {
           console.log("Sound error:", e);
         }
       };
-      
+
       // Explosion sound
       sounds.explode = () => {
         try {
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
-          
+
           oscillator.connect(gainNode);
           gainNode.connect(audioContext.destination);
-          
+
           oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.3);
-          
+          oscillator.frequency.exponentialRampToValueAtTime(
+            50,
+            audioContext.currentTime + 0.3
+          );
+
           gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-          
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioContext.currentTime + 0.3
+          );
+
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.3);
         } catch (e) {
           console.log("Sound error:", e);
         }
       };
-      
+
       // Hit sound
       sounds.hit = () => {
         try {
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
-          
+
           oscillator.connect(gainNode);
           gainNode.connect(audioContext.destination);
-          
+
           oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.15);
-          
+          oscillator.frequency.exponentialRampToValueAtTime(
+            100,
+            audioContext.currentTime + 0.15
+          );
+
           gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-          
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioContext.currentTime + 0.15
+          );
+
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 0.15);
         } catch (e) {
           console.log("Sound error:", e);
         }
       };
-      
+
       // Game over sound
       sounds.gameOver = () => {
         try {
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
-          
+
           oscillator.connect(gainNode);
           gainNode.connect(audioContext.destination);
-          
+
           oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 1.0);
-          
+          oscillator.frequency.exponentialRampToValueAtTime(
+            50,
+            audioContext.currentTime + 1.0
+          );
+
           gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.0);
-          
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioContext.currentTime + 1.0
+          );
+
           oscillator.start(audioContext.currentTime);
           oscillator.stop(audioContext.currentTime + 1.0);
         } catch (e) {
@@ -150,8 +180,137 @@ class Tank1990Game {
       sounds.hit = () => {};
       sounds.gameOver = () => {};
     }
-    
+
     return sounds;
+  }
+
+  getPowerUpTypes() {
+    return [
+      {
+        type: "speed",
+        name: "Speed Boost",
+        color: "#00FFFF", // Cyan
+        icon: "S",
+        duration: 10000, // 10 seconds
+        effect: "Increases movement speed by 50%"
+      },
+      {
+        type: "rapidFire",
+        name: "Rapid Fire",
+        color: "#FF8C00", // Dark orange
+        icon: "R",
+        duration: 10000, // 10 seconds
+        effect: "Reduces fire cooldown by 75%"
+      },
+      {
+        type: "shield",
+        name: "Shield",
+        color: "#9370DB", // Medium purple
+        icon: "♦",
+        duration: 10000, // 10 seconds
+        effect: "Absorbs one hit"
+      },
+      {
+        type: "health",
+        name: "Extra Life",
+        color: "#FF1493", // Deep pink
+        icon: "+",
+        duration: 0, // Instant effect
+        effect: "Adds +1 life"
+      }
+    ];
+  }
+
+  createPowerUp(x, y) {
+    const powerUpTypes = this.getPowerUpTypes();
+    const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+    
+    const powerUp = {
+      x: x,
+      y: y,
+      width: this.tileSize * 0.8, // Slightly smaller than tiles
+      height: this.tileSize * 0.8,
+      type: randomType.type,
+      color: randomType.color,
+      icon: randomType.icon,
+      name: randomType.name,
+      duration: randomType.duration,
+      effect: randomType.effect,
+      bobOffset: 0, // For visual bobbing effect
+      lifetime: 15000, // Disappears after 15 seconds
+      created: Date.now()
+    };
+
+    this.powerUps.push(powerUp);
+  }
+
+  applyBuff(powerUpType) {
+    // Remove existing buff first
+    this.removeBuff();
+
+    switch (powerUpType) {
+      case "speed":
+        this.activeBuff = {
+          type: "speed",
+          originalSpeed: this.player.speed,
+          startTime: Date.now(),
+          duration: 10000
+        };
+        this.player.speed = this.player.speed * 1.5; // 50% speed increase
+        break;
+
+      case "rapidFire":
+        this.activeBuff = {
+          type: "rapidFire",
+          originalCooldown: this.shotCooldown,
+          startTime: Date.now(),
+          duration: 10000
+        };
+        this.shotCooldown = this.shotCooldown * 0.25; // 75% cooldown reduction
+        break;
+
+      case "shield":
+        this.activeBuff = {
+          type: "shield",
+          startTime: Date.now(),
+          duration: 10000,
+          hits: 1 // Can absorb 1 hit
+        };
+        break;
+
+      case "health":
+        this.lives++;
+        this.updateUI();
+        // No persistent buff for health
+        return;
+    }
+
+    this.buffTimer = Date.now();
+  }
+
+  removeBuff() {
+    if (!this.activeBuff) return;
+
+    switch (this.activeBuff.type) {
+      case "speed":
+        this.player.speed = this.activeBuff.originalSpeed;
+        break;
+      case "rapidFire":
+        this.shotCooldown = this.activeBuff.originalCooldown;
+        break;
+      // Shield buff is removed when hit or expires
+    }
+
+    this.activeBuff = null;
+  }
+
+  checkBuffExpiration() {
+    if (!this.activeBuff) return;
+
+    const elapsed = Date.now() - this.activeBuff.startTime;
+    if (elapsed >= this.activeBuff.duration) {
+      this.removeBuff();
+    }
   }
 
   initGame() {
@@ -179,7 +338,7 @@ class Tank1990Game {
       width: this.tileSize,
       height: this.tileSize,
       alive: true,
-      color: "#FFD700" // Gold color for the base
+      color: "#FFD700", // Gold color for the base
     };
   }
 
@@ -190,7 +349,7 @@ class Tank1990Game {
       width: this.tileSize,
       height: this.tileSize,
       direction: 0, // 0: up, 1: right, 2: down, 3: left
-      speed: 2,
+      speed: 2, // Base speed
       alive: true,
       color: "#00ff00",
     };
@@ -260,7 +419,7 @@ class Tank1990Game {
     // Add brick protection around the base
     const baseX = 7; // Base grid position
     const baseY = 14;
-    
+
     // Create brick walls around the base in a protective pattern
     const brickPositions = [
       // Top protection
@@ -275,15 +434,16 @@ class Tank1990Game {
       { x: baseX - 2, y: baseY - 1 },
       { x: baseX - 2, y: baseY },
       { x: baseX + 2, y: baseY - 1 },
-      { x: baseX + 2, y: baseY }
+      { x: baseX + 2, y: baseY },
     ];
-    
+
     for (let pos of brickPositions) {
-      if (pos.x >= 1 && pos.x <= 14 && pos.y >= 1 && pos.y <= 14) { // Stay within borders
+      if (pos.x >= 1 && pos.x <= 14 && pos.y >= 1 && pos.y <= 14) {
+        // Stay within borders
         this.walls.push({
           x: pos.x * this.tileSize,
           y: pos.y * this.tileSize,
-          type: "brick"
+          type: "brick",
         });
       }
     }
@@ -462,7 +622,7 @@ class Tank1990Game {
       }
 
       this.keys[e.code] = false;
-      
+
       // Reset spacebar state when key is released
       if (e.code === "Space") {
         this.spacePressed = false;
@@ -489,6 +649,12 @@ class Tank1990Game {
 
     // Update bullets
     this.updateBullets();
+
+    // Update power-ups
+    this.updatePowerUps();
+
+    // Check buff expiration
+    this.checkBuffExpiration();
 
     // Spawn enemies
     if (Date.now() - this.enemySpawnTimer > this.enemySpawnDelay) {
@@ -560,6 +726,11 @@ class Tank1990Game {
       let enemy = this.enemies[i];
 
       if (!enemy.alive) {
+        // Drop power-up chance
+        if (Math.random() < this.powerUpDropChance) {
+          this.createPowerUp(enemy.x + enemy.width / 4, enemy.y + enemy.height / 4);
+        }
+
         this.enemies.splice(i, 1);
         this.score +=
           enemy.type === "heavy"
@@ -734,13 +905,26 @@ class Tank1990Game {
           }
         } else {
           if (this.collision(bullet, this.player)) {
-            this.player.alive = false;
-            this.sounds.explode();
+            // Check if player has shield buff
+            if (this.activeBuff && this.activeBuff.type === "shield" && this.activeBuff.hits > 0) {
+              this.activeBuff.hits--;
+              this.sounds.hit();
+              if (this.activeBuff.hits <= 0) {
+                this.removeBuff(); // Remove shield when depleted
+              }
+            } else {
+              this.player.alive = false;
+              this.sounds.explode();
+            }
             hit = true;
           }
-          
+
           // Check collision with base
-          if (this.base && this.base.alive && this.collision(bullet, this.base)) {
+          if (
+            this.base &&
+            this.base.alive &&
+            this.collision(bullet, this.base)
+          ) {
             this.base.alive = false;
             this.sounds.explode();
             this.gameOver(); // Game over if base is destroyed
@@ -762,11 +946,41 @@ class Tank1990Game {
     }
   }
 
+  updatePowerUps() {
+    for (let i = this.powerUps.length - 1; i >= 0; i--) {
+      let powerUp = this.powerUps[i];
+
+      // Update bobbing animation
+      powerUp.bobOffset = Math.sin(Date.now() * 0.005) * 3;
+
+      // Check if power-up expired
+      if (Date.now() - powerUp.created > powerUp.lifetime) {
+        this.powerUps.splice(i, 1);
+        continue;
+      }
+
+      // Check collision with player
+      if (this.player.alive && this.collision(this.player, powerUp)) {
+        // Apply buff
+        this.applyBuff(powerUp.type);
+        
+        // Remove power-up
+        this.powerUps.splice(i, 1);
+        
+        // Play sound
+        this.sounds.hit(); // Use hit sound for pickup
+        continue;
+      }
+    }
+  }
+
   shoot(tank) {
     // Use separate cooldown for player vs enemies
-    const lastShot = tank === this.player ? this.playerLastShot : (tank.lastShot || 0);
-    const cooldown = tank === this.player ? this.shotCooldown : tank.shootCooldown;
-    
+    const lastShot =
+      tank === this.player ? this.playerLastShot : tank.lastShot || 0;
+    const cooldown =
+      tank === this.player ? this.shotCooldown : tank.shootCooldown;
+
     if (Date.now() - lastShot < cooldown) {
       return;
     }
@@ -835,7 +1049,9 @@ class Tank1990Game {
         if (wall.type === "forest") {
           continue; // Can drive through forest
         }
-        console.log(`Movement blocked by ${wall.type} wall at (${wall.x}, ${wall.y})`);
+        console.log(
+          `Movement blocked by ${wall.type} wall at (${wall.x}, ${wall.y})`
+        );
         return false; // Cannot drive through other terrain types
       }
     }
@@ -995,28 +1211,46 @@ class Tank1990Game {
     // Draw base (eagle)
     if (this.base && this.base.alive) {
       this.ctx.fillStyle = this.base.color;
-      this.ctx.fillRect(this.base.x, this.base.y, this.base.width, this.base.height);
-      
+      this.ctx.fillRect(
+        this.base.x,
+        this.base.y,
+        this.base.width,
+        this.base.height
+      );
+
       // Draw eagle symbol
       this.ctx.fillStyle = "#8B4513";
       this.ctx.fillRect(this.base.x + 8, this.base.y + 8, 24, 8);
       this.ctx.fillRect(this.base.x + 16, this.base.y + 16, 8, 16);
-      
+
       // Add outline
       this.ctx.strokeStyle = "#000";
       this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(this.base.x, this.base.y, this.base.width, this.base.height);
+      this.ctx.strokeRect(
+        this.base.x,
+        this.base.y,
+        this.base.width,
+        this.base.height
+      );
     } else if (this.base && !this.base.alive) {
       // Draw destroyed base
       this.ctx.fillStyle = "#8B0000";
-      this.ctx.fillRect(this.base.x, this.base.y, this.base.width, this.base.height);
-      
+      this.ctx.fillRect(
+        this.base.x,
+        this.base.y,
+        this.base.width,
+        this.base.height
+      );
+
       // Draw "X" over destroyed base
       this.ctx.strokeStyle = "#FF0000";
       this.ctx.lineWidth = 4;
       this.ctx.beginPath();
       this.ctx.moveTo(this.base.x, this.base.y);
-      this.ctx.lineTo(this.base.x + this.base.width, this.base.y + this.base.height);
+      this.ctx.lineTo(
+        this.base.x + this.base.width,
+        this.base.y + this.base.height
+      );
       this.ctx.moveTo(this.base.x + this.base.width, this.base.y);
       this.ctx.lineTo(this.base.x, this.base.y + this.base.height);
       this.ctx.stroke();
@@ -1033,19 +1267,80 @@ class Tank1990Game {
     this.ctx.fillStyle = "#FFF";
     this.ctx.font = "16px monospace";
     this.ctx.fillText(`Enemies on field: ${this.enemies.length}`, 10, 30);
-    this.ctx.fillText(`Player: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})`, 10, 50);
-    this.ctx.fillText(`Keys: ${Object.keys(this.keys).filter(k => this.keys[k]).join(', ')}`, 10, 70);
+    this.ctx.fillText(
+      `Player: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})`,
+      10,
+      50
+    );
+    this.ctx.fillText(
+      `Keys: ${Object.keys(this.keys)
+        .filter((k) => this.keys[k])
+        .join(", ")}`,
+      10,
+      70
+    );
 
     // Draw bullets
     for (let bullet of this.bullets) {
       this.ctx.fillStyle = bullet.color;
       this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
     }
+
+    // Draw power-ups
+    for (let powerUp of this.powerUps) {
+      // Draw power-up with bobbing effect
+      const drawY = powerUp.y + powerUp.bobOffset;
+      
+      // Draw power-up background
+      this.ctx.fillStyle = powerUp.color;
+      this.ctx.fillRect(powerUp.x, drawY, powerUp.width, powerUp.height);
+      
+      // Draw power-up icon
+      this.ctx.fillStyle = "#FFF";
+      this.ctx.font = "bold 20px monospace";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText(
+        powerUp.icon,
+        powerUp.x + powerUp.width / 2,
+        drawY + powerUp.height / 2 + 6
+      );
+      
+      // Draw outline
+      this.ctx.strokeStyle = "#000";
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(powerUp.x, drawY, powerUp.width, powerUp.height);
+    }
+
+    // Draw active buff indicator
+    if (this.activeBuff) {
+      const timeLeft = this.activeBuff.duration - (Date.now() - this.activeBuff.startTime);
+      const buffTypes = this.getPowerUpTypes();
+      const buffInfo = buffTypes.find(b => b.type === this.activeBuff.type);
+      
+      if (timeLeft > 0 && buffInfo) {
+        this.ctx.fillStyle = buffInfo.color;
+        this.ctx.fillRect(10, 90, 200, 30);
+        
+        this.ctx.fillStyle = "#000";
+        this.ctx.font = "14px monospace";
+        this.ctx.textAlign = "left";
+        this.ctx.fillText(`${buffInfo.name}: ${Math.ceil(timeLeft / 1000)}s`, 15, 110);
+      }
+    }
   }
 
   drawTank(tank) {
     this.ctx.fillStyle = tank.color;
     this.ctx.fillRect(tank.x, tank.y, tank.width, tank.height);
+
+    // Draw shield effect for player if active
+    if (tank === this.player && this.activeBuff && this.activeBuff.type === "shield") {
+      this.ctx.strokeStyle = "#9370DB";
+      this.ctx.lineWidth = 4;
+      this.ctx.setLineDash([5, 5]);
+      this.ctx.strokeRect(tank.x - 4, tank.y - 4, tank.width + 8, tank.height + 8);
+      this.ctx.setLineDash([]); // Reset dash
+    }
 
     // Draw health indicator for enemies
     if (tank !== this.player && tank.maxHealth > 1) {
@@ -1167,6 +1462,11 @@ class Tank1990Game {
     this.bullets = [];
     this.powerUps = [];
     this.spacePressed = false;
+    
+    // Reset buffs
+    this.removeBuff();
+    this.activeBuff = null;
+    this.buffTimer = 0;
 
     document.getElementById("gameOver").classList.add("hidden");
     document.getElementById("levelComplete").classList.add("hidden");
