@@ -26,8 +26,8 @@ class Tank1990Game {
 
     // Input handling
     this.keys = {};
-    this.lastShot = 0;
-    this.shotCooldown = 250; // milliseconds
+    this.playerLastShot = 0; // Separate shooting cooldown for player
+    this.shotCooldown = 2000; // Much slower fire rate for realistic tank combat (2 seconds)
     this.spacePressed = false; // Track spacebar state
 
     // Sound system
@@ -51,80 +51,105 @@ class Tank1990Game {
     // Create audio context for sound effects
     const sounds = {};
     
-    // Create simple sound effects using Web Audio API
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // Shooting sound
-    sounds.shoot = () => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+    try {
+      // Create simple sound effects using Web Audio API
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      // Shooting sound
+      sounds.shoot = () => {
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
+          
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.1);
+        } catch (e) {
+          console.log("Sound error:", e);
+        }
+      };
       
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
+      // Explosion sound
+      sounds.explode = () => {
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.3);
+          
+          gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (e) {
+          console.log("Sound error:", e);
+        }
+      };
       
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      // Hit sound
+      sounds.hit = () => {
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.15);
+          
+          gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.15);
+        } catch (e) {
+          console.log("Sound error:", e);
+        }
+      };
       
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.1);
-    };
-    
-    // Explosion sound
-    sounds.explode = () => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.3);
-      
-      gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
-    };
-    
-    // Hit sound
-    sounds.hit = () => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.15);
-      
-      gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.15);
-    };
-    
-    // Game over sound
-    sounds.gameOver = () => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 1.0);
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.0);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 1.0);
-    };
+      // Game over sound
+      sounds.gameOver = () => {
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 1.0);
+          
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.0);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 1.0);
+        } catch (e) {
+          console.log("Sound error:", e);
+        }
+      };
+    } catch (e) {
+      console.log("Audio context creation failed:", e);
+      // Create dummy sound functions if audio fails
+      sounds.shoot = () => {};
+      sounds.explode = () => {};
+      sounds.hit = () => {};
+      sounds.gameOver = () => {};
+    }
     
     return sounds;
   }
@@ -161,7 +186,7 @@ class Tank1990Game {
   createPlayer() {
     this.player = {
       x: 7 * this.tileSize, // Center horizontally for 16-wide grid
-      y: 13 * this.tileSize, // Move up one tile from bottom border
+      y: 12 * this.tileSize, // Move further up to avoid base area
       width: this.tileSize,
       height: this.tileSize,
       direction: 0, // 0: up, 1: right, 2: down, 3: left
@@ -200,7 +225,7 @@ class Tank1990Game {
       // Don't place terrain near player spawn or enemy spawn points
       // Updated for 16x16 grid - more restrictive around spawn areas
       if (
-        (x >= 6 && x <= 8 && y >= 12) || // Player area
+        (x >= 6 && x <= 8 && y >= 11 && y <= 13) || // Player area (expanded to include both old and new positions)
         (x <= 3 && y <= 3) || // Top-left enemy spawn area (expanded)
         (x >= 5 && x <= 9 && y <= 3) || // Top-center enemy spawn area (expanded)
         (x >= 12 && y <= 3) || // Top-right enemy spawn area (expanded)
@@ -349,7 +374,7 @@ class Tank1990Game {
         health: 1,
         speed: 1.5,
         color: "#FF6B6B", // Light red
-        shootCooldown: 1200,
+        shootCooldown: 3000, // 3 seconds - realistic tank reload time
         aggressiveness: 0.7, // 70% chance to move toward player
         weight: 40, // 40% spawn chance
       },
@@ -358,7 +383,7 @@ class Tank1990Game {
         health: 2,
         speed: 1.0,
         color: "#FF4444", // Medium red
-        shootCooldown: 1000,
+        shootCooldown: 2500, // 2.5 seconds - faster than light tanks
         aggressiveness: 0.5,
         weight: 30, // 30% spawn chance
       },
@@ -367,7 +392,7 @@ class Tank1990Game {
         health: 3,
         speed: 0.8,
         color: "#CC0000", // Dark red
-        shootCooldown: 800,
+        shootCooldown: 2000, // 2 seconds - heavy guns reload faster but move slower
         aggressiveness: 0.3,
         weight: 15, // 15% spawn chance
       },
@@ -376,7 +401,7 @@ class Tank1990Game {
         health: 1,
         speed: 2.5,
         color: "#FF8888", // Pink red
-        shootCooldown: 1500,
+        shootCooldown: 4000, // 4 seconds - very fast but poor gun
         aggressiveness: 0.8, // Very aggressive
         weight: 15, // 15% spawn chance
       },
@@ -414,7 +439,7 @@ class Tank1990Game {
       }
 
       // Improved shooting mechanism - only shoot on initial key press
-      if (e.code === "Space" && !this.spacePressed) {
+      if (e.code === "Space" && !this.spacePressed && this.gameRunning) {
         this.spacePressed = true;
         if (
           document.getElementById("levelComplete").classList.contains("hidden")
@@ -523,6 +548,9 @@ class Tank1990Game {
       if (canMove) {
         this.player.x = newX;
         this.player.y = newY;
+        console.log(`Player moved to: (${this.player.x}, ${this.player.y})`);
+      } else {
+        console.log(`Movement blocked to: (${newX}, ${newY})`);
       }
     }
   }
@@ -735,7 +763,13 @@ class Tank1990Game {
   }
 
   shoot(tank) {
-    if (Date.now() - this.lastShot < this.shotCooldown) return;
+    // Use separate cooldown for player vs enemies
+    const lastShot = tank === this.player ? this.playerLastShot : (tank.lastShot || 0);
+    const cooldown = tank === this.player ? this.shotCooldown : tank.shootCooldown;
+    
+    if (Date.now() - lastShot < cooldown) {
+      return;
+    }
 
     let bulletX = tank.x + tank.width / 2 - 4; // Bigger bullet
     let bulletY = tank.y + tank.height / 2 - 4; // Bigger bullet
@@ -770,7 +804,12 @@ class Tank1990Game {
     // Play shooting sound
     this.sounds.shoot();
 
-    this.lastShot = Date.now();
+    // Update the appropriate last shot time
+    if (tank === this.player) {
+      this.playerLastShot = Date.now();
+    } else {
+      tank.lastShot = Date.now();
+    }
   }
 
   canMoveTo(x, y, width, height, excludeTank = null) {
@@ -784,6 +823,7 @@ class Tank1990Game {
       x + width > this.canvas.width - buffer ||
       y + height > this.canvas.height - buffer
     ) {
+      console.log("Movement blocked by canvas bounds");
       return false;
     }
 
@@ -795,14 +835,22 @@ class Tank1990Game {
         if (wall.type === "forest") {
           continue; // Can drive through forest
         }
+        console.log(`Movement blocked by ${wall.type} wall at (${wall.x}, ${wall.y})`);
         return false; // Cannot drive through other terrain types
       }
+    }
+
+    // Check collision with base
+    if (this.base && this.base.alive && this.collision(testObj, this.base)) {
+      console.log("Movement blocked by base");
+      return false;
     }
 
     // Check collision with other tanks (prevent tanks from overlapping)
     // But exclude the tank that's trying to move
     if (this.player && this.player.alive && excludeTank !== this.player) {
       if (this.collision(testObj, this.player)) {
+        console.log("Movement blocked by player tank");
         return false;
       }
     }
@@ -813,6 +861,7 @@ class Tank1990Game {
         excludeTank !== enemy &&
         this.collision(testObj, enemy)
       ) {
+        console.log(`Movement blocked by enemy at (${enemy.x}, ${enemy.y})`);
         return false;
       }
     }
@@ -980,10 +1029,12 @@ class Tank1990Game {
       }
     }
 
-    // Debug: Draw enemy count
+    // Debug: Draw enemy count and player position
     this.ctx.fillStyle = "#FFF";
     this.ctx.font = "16px monospace";
     this.ctx.fillText(`Enemies on field: ${this.enemies.length}`, 10, 30);
+    this.ctx.fillText(`Player: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})`, 10, 50);
+    this.ctx.fillText(`Keys: ${Object.keys(this.keys).filter(k => this.keys[k]).join(', ')}`, 10, 70);
 
     // Draw bullets
     for (let bullet of this.bullets) {
@@ -1077,7 +1128,7 @@ class Tank1990Game {
 
   respawnPlayer() {
     this.player.x = 7 * this.tileSize; // Center horizontally for 16-wide grid
-    this.player.y = 13 * this.tileSize; // Move up one tile from bottom border
+    this.player.y = 12 * this.tileSize; // Move further up to avoid base area
     this.player.alive = true;
     this.player.direction = 0;
     this.updateUI();
