@@ -13,8 +13,8 @@
         <div class="score">
           <span>Score: <span id="score">0</span></span>
           <span>Lives: <span id="lives">3</span></span>
-          <span>Level: <span id="level">1</span></span>
           <span>Enemies: <span id="enemies">20</span></span>
+          <span>High Score: <span id="highScore">0</span></span>
         </div>
       </div>
 
@@ -29,32 +29,77 @@
           <p>Spacebar - Shoot</p>
           <p>R - Restart Game</p>
         </div>
+
+        <div class="level-info">
+          <div id="levelInfo">
+            <strong>Level 1 Goals:</strong><br />
+            • Destroy 20 enemy tanks<br />
+            • Protect your base at all costs<br />
+            • Current Enemies Remaining: 20
+          </div>
+        </div>
+
+        <div class="enemy-info">
+          <div id="enemyTypes">
+            <strong>Enemy Types in This Level:</strong><br />
+            <div style="margin-left: 10px">
+              <div>
+                🟢 <strong>Basic Tank:</strong> Standard enemy, 1 shot to
+                destroy
+              </div>
+              <div>
+                🔴 <strong>Fast Tank:</strong> Moves quickly, 1 shot to destroy
+              </div>
+              <div>
+                🟡 <strong>Heavy Tank:</strong> Slower but takes 2 shots to
+                destroy
+              </div>
+              <div>
+                ⚪ <strong>Power Tank:</strong> Fast firing and durable, 2 shots
+                to destroy
+              </div>
+            </div>
+            <br />
+            <strong>Current Active Enemies:</strong> 0/3
+          </div>
+        </div>
+
         <div class="terrain-info">
-          <h3>Enemies:</h3>
-          <p>
-            <span style="color: #ff6b6b">L</span> Light - 1 HP, Fast, 3s reload
-          </p>
-          <p>
-            <span style="color: #ff4444">M</span> Medium - 2 HP, 2.5s reload
-          </p>
-          <p>
-            <span style="color: #cc0000">H</span> Heavy - 3 HP, Slow, 2s reload
-          </p>
-          <p>
-            <span style="color: #ff8888">F</span> Fast - 1 HP, Very Fast, 4s
-            reload
-          </p>
-          <hr />
+          <div id="terrainInfo">
+            <strong>Terrain Types:</strong><br />
+            <div style="margin-left: 10px">
+              <div>
+                🟫 <strong>Brick Walls:</strong> Destructible by tank shots
+              </div>
+              <div>
+                ⬜ <strong>Steel Blocks:</strong> Indestructible barriers
+              </div>
+              <div>
+                🌲 <strong>Forest:</strong> Tanks can hide but bullets pass
+                through
+              </div>
+              <div>🌊 <strong>Water:</strong> Impassable for all tanks</div>
+              <div>
+                ❄️ <strong>Ice:</strong> Tanks slide and have reduced control
+              </div>
+            </div>
+            <br />
+            <strong>Terrain Density:</strong> 15%
+          </div>
+        </div>
+
+        <div class="powerup-info">
           <h3>Power-ups:</h3>
-          <p><span style="color: #00FFFF">S</span> Speed Boost (10s)</p>
-          <p><span style="color: #FF8C00">R</span> Rapid Fire (10s)</p>
-          <p><span style="color: #9370DB">♦</span> Shield (10s)</p>
-          <p><span style="color: #FF1493">+</span> Extra Life</p>
+          <p><span style="color: #00ffff">S</span> Speed Boost (until death)</p>
+          <p><span style="color: #ff8c00">R</span> Rapid Fire (until death)</p>
+          <p><span style="color: #9370db">♦</span> Shield (10s)</p>
+          <p><span style="color: #ff1493">+</span> Extra Life (+1 life)</p>
           <hr />
           <h3>Objective:</h3>
           <p><span style="color: #ffd700">🏛️</span> Protect the Base!</p>
           <p>Game Over if base is destroyed</p>
         </div>
+
         <div class="game-status">
           <div id="gameOver" class="game-over hidden">
             <h2>GAME OVER</h2>

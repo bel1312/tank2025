@@ -8,9 +8,13 @@ class Tank1990Game {
     // Game state
     this.gameRunning = false;
     this.score = 0;
-    this.lives = 3;
     this.level = 1;
     this.enemyTanksRemaining = 0;
+    this.highScore = this.loadHighScore();
+
+    // Level system
+    this.levelConfig = this.getLevelConfigurations();
+    this.currentLevelConfig = null;
 
     // Grid system (16x16 tiles, each 40px) - Bigger tiles, smaller grid
     this.tileSize = 40;
@@ -184,6 +188,137 @@ class Tank1990Game {
     return sounds;
   }
 
+  loadHighScore() {
+    const stored = localStorage.getItem("tank2025_highscore");
+    return stored ? parseInt(stored) : 0;
+  }
+
+  saveHighScore() {
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      localStorage.setItem("tank2025_highscore", this.highScore.toString());
+      return true; // New high score achieved
+    }
+    return false;
+  }
+
+  getLevelConfigurations() {
+    return {
+      1: {
+        enemyCount: 20,
+        maxEnemiesOnField: 4,
+        spawnDelay: 1000,
+        terrainDensity: 30,
+        powerUpDropChance: 0.3,
+        enemyTypes: {
+          light: 50,
+          medium: 30,
+          heavy: 15,
+          fast: 5,
+        },
+        goal: "Destroy all 20 enemy tanks",
+        theme: "Basic Training",
+      },
+      2: {
+        enemyCount: 25,
+        maxEnemiesOnField: 5,
+        spawnDelay: 900,
+        terrainDensity: 35,
+        powerUpDropChance: 0.25,
+        enemyTypes: {
+          light: 40,
+          medium: 35,
+          heavy: 20,
+          fast: 5,
+        },
+        goal: "Survive 25 enemy waves",
+        theme: "Intermediate Combat",
+      },
+      3: {
+        enemyCount: 30,
+        maxEnemiesOnField: 5,
+        spawnDelay: 800,
+        terrainDensity: 40,
+        powerUpDropChance: 0.2,
+        enemyTypes: {
+          light: 30,
+          medium: 35,
+          heavy: 25,
+          fast: 10,
+        },
+        goal: "Defeat 30 enemies in dense terrain",
+        theme: "Urban Warfare",
+      },
+      4: {
+        enemyCount: 35,
+        maxEnemiesOnField: 6,
+        spawnDelay: 700,
+        terrainDensity: 45,
+        powerUpDropChance: 0.15,
+        enemyTypes: {
+          light: 25,
+          medium: 30,
+          heavy: 30,
+          fast: 15,
+        },
+        goal: "Heavy resistance - 35 enemies",
+        theme: "Fortress Assault",
+      },
+      5: {
+        enemyCount: 40,
+        maxEnemiesOnField: 6,
+        spawnDelay: 600,
+        terrainDensity: 50,
+        powerUpDropChance: 0.1,
+        enemyTypes: {
+          light: 20,
+          medium: 25,
+          heavy: 35,
+          fast: 20,
+        },
+        goal: "Final battle - 40 elite enemies",
+        theme: "Last Stand",
+      },
+    };
+  }
+
+  getCurrentLevelConfig() {
+    const maxLevel = Math.max(...Object.keys(this.levelConfig).map(Number));
+    if (this.level <= maxLevel) {
+      return this.levelConfig[this.level];
+    } else {
+      // Generate endless levels beyond defined ones
+      const baseConfig = this.levelConfig[maxLevel];
+      const scaleFactor = this.level - maxLevel + 1;
+      return {
+        enemyCount: baseConfig.enemyCount + scaleFactor * 10,
+        maxEnemiesOnField: Math.min(
+          8,
+          baseConfig.maxEnemiesOnField + Math.floor(scaleFactor / 2)
+        ),
+        spawnDelay: Math.max(300, baseConfig.spawnDelay - scaleFactor * 50),
+        terrainDensity: Math.min(
+          70,
+          baseConfig.terrainDensity + scaleFactor * 5
+        ),
+        powerUpDropChance: Math.max(
+          0.05,
+          baseConfig.powerUpDropChance - scaleFactor * 0.02
+        ),
+        enemyTypes: {
+          light: Math.max(5, 20 - scaleFactor * 2),
+          medium: Math.max(10, 25 - scaleFactor),
+          heavy: Math.min(50, 35 + scaleFactor * 2),
+          fast: Math.min(35, 20 + scaleFactor * 3),
+        },
+        goal: `Endless Mode - Survive ${
+          baseConfig.enemyCount + scaleFactor * 10
+        } enemies`,
+        theme: `Endless Level ${this.level}`,
+      };
+    }
+  }
+
   getPowerUpTypes() {
     return [
       {
@@ -192,7 +327,7 @@ class Tank1990Game {
         color: "#00FFFF", // Cyan
         icon: "S",
         duration: 10000, // 10 seconds
-        effect: "Increases movement speed by 50%"
+        effect: "Increases movement speed by 50%",
       },
       {
         type: "rapidFire",
@@ -200,7 +335,7 @@ class Tank1990Game {
         color: "#FF8C00", // Dark orange
         icon: "R",
         duration: 10000, // 10 seconds
-        effect: "Reduces fire cooldown by 75%"
+        effect: "Reduces fire cooldown by 75%",
       },
       {
         type: "shield",
@@ -208,7 +343,7 @@ class Tank1990Game {
         color: "#9370DB", // Medium purple
         icon: "♦",
         duration: 10000, // 10 seconds
-        effect: "Absorbs one hit"
+        effect: "Absorbs one hit",
       },
       {
         type: "health",
@@ -216,15 +351,16 @@ class Tank1990Game {
         color: "#FF1493", // Deep pink
         icon: "+",
         duration: 0, // Instant effect
-        effect: "Adds +1 life"
-      }
+        effect: "Adds +1 life",
+      },
     ];
   }
 
   createPowerUp(x, y) {
     const powerUpTypes = this.getPowerUpTypes();
-    const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
-    
+    const randomType =
+      powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+
     const powerUp = {
       x: x,
       y: y,
@@ -238,48 +374,54 @@ class Tank1990Game {
       effect: randomType.effect,
       bobOffset: 0, // For visual bobbing effect
       lifetime: 15000, // Disappears after 15 seconds
-      created: Date.now()
+      created: Date.now(),
     };
 
     this.powerUps.push(powerUp);
   }
 
   applyBuff(powerUpType) {
-    // Remove existing buff first
-    this.removeBuff();
-
     switch (powerUpType) {
       case "speed":
-        this.activeBuff = {
-          type: "speed",
-          originalSpeed: this.player.speed,
-          startTime: Date.now(),
-          duration: 10000
-        };
-        this.player.speed = this.player.speed * 1.5; // 50% speed increase
+        // Don't remove existing buff, just apply speed if not already active
+        if (!this.activeBuff || this.activeBuff.type !== "speed") {
+          this.activeBuff = {
+            type: "speed",
+            originalSpeed: this.player.speed,
+            startTime: Date.now(),
+            duration: Infinity, // Infinite duration until death
+          };
+          this.player.speed = this.player.speed * 1.5; // 50% speed increase
+        }
         break;
 
       case "rapidFire":
-        this.activeBuff = {
-          type: "rapidFire",
-          originalCooldown: this.shotCooldown,
-          startTime: Date.now(),
-          duration: 10000
-        };
-        this.shotCooldown = this.shotCooldown * 0.25; // 75% cooldown reduction
+        // Don't remove existing buff, just apply rapid fire if not already active
+        if (!this.activeBuff || this.activeBuff.type !== "rapidFire") {
+          this.activeBuff = {
+            type: "rapidFire",
+            originalCooldown: this.shotCooldown,
+            startTime: Date.now(),
+            duration: Infinity, // Infinite duration until death
+          };
+          this.shotCooldown = this.shotCooldown * 0.25; // 75% cooldown reduction
+        }
         break;
 
       case "shield":
+        // Shield can still replace other buffs and has limited duration
+        this.removeBuff();
         this.activeBuff = {
           type: "shield",
           startTime: Date.now(),
           duration: 10000,
-          hits: 1 // Can absorb 1 hit
+          hits: 1, // Can absorb 1 hit
         };
         break;
 
       case "health":
-        this.lives++;
+        // Directly add life
+        this.player.lives++;
         this.updateUI();
         // No persistent buff for health
         return;
@@ -316,10 +458,16 @@ class Tank1990Game {
   initGame() {
     this.createPlayer();
     this.createBase();
+
+    // Get current level configuration
+    this.currentLevelConfig = this.getCurrentLevelConfig();
+
     this.generateLevel();
-    this.enemyTanksRemaining = 20; // Always 20 enemies per level
+    this.enemyTanksRemaining = this.currentLevelConfig.enemyCount;
     this.enemiesKilled = 0;
-    this.maxEnemiesOnField = Math.min(4 + this.level, 5); // 4-5 max on field
+    this.maxEnemiesOnField = this.currentLevelConfig.maxEnemiesOnField;
+    this.enemySpawnDelay = this.currentLevelConfig.spawnDelay;
+    this.powerUpDropChance = this.currentLevelConfig.powerUpDropChance;
     this.gameRunning = true;
 
     // Force spawn initial enemies
@@ -352,6 +500,7 @@ class Tank1990Game {
       speed: 2, // Base speed
       alive: true,
       color: "#00ff00",
+      lives: 3,
     };
   }
 
@@ -376,8 +525,11 @@ class Tank1990Game {
       });
     }
 
-    // Add varied terrain types
-    for (let i = 0; i < 30 + this.level * 8; i++) {
+    // Add varied terrain types - use level configuration
+    const terrainCount = this.currentLevelConfig
+      ? this.currentLevelConfig.terrainDensity
+      : 30;
+    for (let i = 0; i < terrainCount; i++) {
       let x = Math.floor(Math.random() * (this.gridWidth - 4)) + 2;
       let y = Math.floor(Math.random() * (this.gridHeight - 4)) + 2;
 
@@ -528,6 +680,16 @@ class Tank1990Game {
   }
 
   getRandomEnemyType() {
+    // Use level-specific enemy type distribution
+    const levelWeights = this.currentLevelConfig
+      ? this.currentLevelConfig.enemyTypes
+      : {
+          light: 40,
+          medium: 30,
+          heavy: 15,
+          fast: 15,
+        };
+
     const enemyTypes = [
       {
         name: "light",
@@ -536,7 +698,7 @@ class Tank1990Game {
         color: "#FF6B6B", // Light red
         shootCooldown: 3000, // 3 seconds - realistic tank reload time
         aggressiveness: 0.7, // 70% chance to move toward player
-        weight: 40, // 40% spawn chance
+        weight: levelWeights.light,
       },
       {
         name: "medium",
@@ -545,7 +707,7 @@ class Tank1990Game {
         color: "#FF4444", // Medium red
         shootCooldown: 2500, // 2.5 seconds - faster than light tanks
         aggressiveness: 0.5,
-        weight: 30, // 30% spawn chance
+        weight: levelWeights.medium,
       },
       {
         name: "heavy",
@@ -554,7 +716,7 @@ class Tank1990Game {
         color: "#CC0000", // Dark red
         shootCooldown: 2000, // 2 seconds - heavy guns reload faster but move slower
         aggressiveness: 0.3,
-        weight: 15, // 15% spawn chance
+        weight: levelWeights.heavy,
       },
       {
         name: "fast",
@@ -563,7 +725,7 @@ class Tank1990Game {
         color: "#FF8888", // Pink red
         shootCooldown: 4000, // 4 seconds - very fast but poor gun
         aggressiveness: 0.8, // Very aggressive
-        weight: 15, // 15% spawn chance
+        weight: levelWeights.fast,
       },
     ];
 
@@ -669,8 +831,8 @@ class Tank1990Game {
 
     // Check lose condition
     if (!this.player.alive) {
-      this.lives--;
-      if (this.lives <= 0) {
+      this.player.lives--;
+      if (this.player.lives <= 0) {
         this.gameOver();
       } else {
         this.respawnPlayer();
@@ -728,7 +890,10 @@ class Tank1990Game {
       if (!enemy.alive) {
         // Drop power-up chance
         if (Math.random() < this.powerUpDropChance) {
-          this.createPowerUp(enemy.x + enemy.width / 4, enemy.y + enemy.height / 4);
+          this.createPowerUp(
+            enemy.x + enemy.width / 4,
+            enemy.y + enemy.height / 4
+          );
         }
 
         this.enemies.splice(i, 1);
@@ -906,7 +1071,11 @@ class Tank1990Game {
         } else {
           if (this.collision(bullet, this.player)) {
             // Check if player has shield buff
-            if (this.activeBuff && this.activeBuff.type === "shield" && this.activeBuff.hits > 0) {
+            if (
+              this.activeBuff &&
+              this.activeBuff.type === "shield" &&
+              this.activeBuff.hits > 0
+            ) {
               this.activeBuff.hits--;
               this.sounds.hit();
               if (this.activeBuff.hits <= 0) {
@@ -963,10 +1132,10 @@ class Tank1990Game {
       if (this.player.alive && this.collision(this.player, powerUp)) {
         // Apply buff
         this.applyBuff(powerUp.type);
-        
+
         // Remove power-up
         this.powerUps.splice(i, 1);
-        
+
         // Play sound
         this.sounds.hit(); // Use hit sound for pickup
         continue;
@@ -1290,11 +1459,11 @@ class Tank1990Game {
     for (let powerUp of this.powerUps) {
       // Draw power-up with bobbing effect
       const drawY = powerUp.y + powerUp.bobOffset;
-      
+
       // Draw power-up background
       this.ctx.fillStyle = powerUp.color;
       this.ctx.fillRect(powerUp.x, drawY, powerUp.width, powerUp.height);
-      
+
       // Draw power-up icon
       this.ctx.fillStyle = "#FFF";
       this.ctx.font = "bold 20px monospace";
@@ -1304,7 +1473,7 @@ class Tank1990Game {
         powerUp.x + powerUp.width / 2,
         drawY + powerUp.height / 2 + 6
       );
-      
+
       // Draw outline
       this.ctx.strokeStyle = "#000";
       this.ctx.lineWidth = 2;
@@ -1313,18 +1482,23 @@ class Tank1990Game {
 
     // Draw active buff indicator
     if (this.activeBuff) {
-      const timeLeft = this.activeBuff.duration - (Date.now() - this.activeBuff.startTime);
+      const timeLeft =
+        this.activeBuff.duration - (Date.now() - this.activeBuff.startTime);
       const buffTypes = this.getPowerUpTypes();
-      const buffInfo = buffTypes.find(b => b.type === this.activeBuff.type);
-      
+      const buffInfo = buffTypes.find((b) => b.type === this.activeBuff.type);
+
       if (timeLeft > 0 && buffInfo) {
         this.ctx.fillStyle = buffInfo.color;
         this.ctx.fillRect(10, 90, 200, 30);
-        
+
         this.ctx.fillStyle = "#000";
         this.ctx.font = "14px monospace";
         this.ctx.textAlign = "left";
-        this.ctx.fillText(`${buffInfo.name}: ${Math.ceil(timeLeft / 1000)}s`, 15, 110);
+        this.ctx.fillText(
+          `${buffInfo.name}: ${Math.ceil(timeLeft / 1000)}s`,
+          15,
+          110
+        );
       }
     }
   }
@@ -1334,11 +1508,20 @@ class Tank1990Game {
     this.ctx.fillRect(tank.x, tank.y, tank.width, tank.height);
 
     // Draw shield effect for player if active
-    if (tank === this.player && this.activeBuff && this.activeBuff.type === "shield") {
+    if (
+      tank === this.player &&
+      this.activeBuff &&
+      this.activeBuff.type === "shield"
+    ) {
       this.ctx.strokeStyle = "#9370DB";
       this.ctx.lineWidth = 4;
       this.ctx.setLineDash([5, 5]);
-      this.ctx.strokeRect(tank.x - 4, tank.y - 4, tank.width + 8, tank.height + 8);
+      this.ctx.strokeRect(
+        tank.x - 4,
+        tank.y - 4,
+        tank.width + 8,
+        tank.height + 8
+      );
       this.ctx.setLineDash([]); // Reset dash
     }
 
@@ -1422,6 +1605,9 @@ class Tank1990Game {
   }
 
   respawnPlayer() {
+    // Reset buffs when player dies
+    this.removeBuff();
+
     this.player.x = 7 * this.tileSize; // Center horizontally for 16-wide grid
     this.player.y = 12 * this.tileSize; // Move further up to avoid base area
     this.player.alive = true;
@@ -1429,9 +1615,29 @@ class Tank1990Game {
     this.updateUI();
   }
 
+  gameOver() {
+    this.gameRunning = false;
+    this.sounds.gameOver();
+
+    // Save high score
+    const newHighScore = this.saveHighScore();
+    if (newHighScore) {
+      // Could add special effect for new high score
+      console.log("New high score achieved!");
+    }
+
+    document.getElementById("gameOver").classList.remove("hidden");
+    this.updateUI(); // Update UI to show high score
+  }
+
   levelComplete() {
     this.gameRunning = false;
     document.getElementById("levelComplete").classList.remove("hidden");
+
+    // Add level completion bonus
+    const levelBonus = this.level * 1000;
+    this.score += levelBonus;
+    this.updateUI();
   }
 
   nextLevel() {
@@ -1440,29 +1646,27 @@ class Tank1990Game {
     this.enemies = [];
     this.bullets = [];
     this.createBase(); // Recreate base for new level
+
+    // Use new level configuration
+    this.currentLevelConfig = this.getCurrentLevelConfig();
     this.generateLevel();
-    this.enemyTanksRemaining = 20; // Always 20 enemies per level
+    this.enemyTanksRemaining = this.currentLevelConfig.enemyCount;
     this.enemiesKilled = 0;
-    this.maxEnemiesOnField = Math.min(4 + this.level, 5); // Increase max enemies slightly
+    this.maxEnemiesOnField = this.currentLevelConfig.maxEnemiesOnField;
+    this.enemySpawnDelay = this.currentLevelConfig.spawnDelay;
+    this.powerUpDropChance = this.currentLevelConfig.powerUpDropChance;
     this.gameRunning = true;
     this.updateUI();
   }
 
-  gameOver() {
-    this.gameRunning = false;
-    this.sounds.gameOver();
-    document.getElementById("gameOver").classList.remove("hidden");
-  }
-
   restartGame() {
     this.score = 0;
-    this.lives = 3;
     this.level = 1;
     this.enemies = [];
     this.bullets = [];
     this.powerUps = [];
     this.spacePressed = false;
-    
+
     // Reset buffs
     this.removeBuff();
     this.activeBuff = null;
@@ -1476,10 +1680,56 @@ class Tank1990Game {
 
   updateUI() {
     document.getElementById("score").textContent = this.score;
-    document.getElementById("lives").textContent = this.lives;
-    document.getElementById("level").textContent = this.level;
-    document.getElementById("enemies").textContent =
-      this.enemyTanksRemaining + this.enemies.length;
+    document.getElementById("lives").textContent = this.player.lives;
+    document.getElementById("enemies").textContent = this.enemyTanksRemaining;
+    document.getElementById("highScore").textContent = this.highScore;
+
+    // Update level information
+    const levelConfig = this.getCurrentLevelConfig();
+    document.getElementById("levelInfo").innerHTML = `
+      <strong>Level ${this.level} Goals:</strong><br>
+      • Destroy ${levelConfig.enemyCount} enemy tanks<br>
+      • Protect your base at all costs<br>
+      • Current Enemies Remaining: ${this.enemyTanksRemaining}
+    `;
+
+    // Update enemy types information
+    const enemyInfo = this.getEnemyTypesInfo();
+    document.getElementById("enemyTypes").innerHTML = enemyInfo;
+
+    // Update terrain information
+    document.getElementById("terrainInfo").innerHTML = this.getTerrainInfo();
+  }
+
+  getEnemyTypesInfo() {
+    return `
+      <strong>Enemy Types in This Level:</strong><br>
+      <div style="margin-left: 10px;">
+        <div>🟢 <strong>Basic Tank:</strong> Standard enemy, 1 shot to destroy</div>
+        <div>🔴 <strong>Fast Tank:</strong> Moves quickly, 1 shot to destroy</div>
+        <div>🟡 <strong>Heavy Tank:</strong> Slower but takes 2 shots to destroy</div>
+        <div>⚪ <strong>Power Tank:</strong> Fast firing and durable, 2 shots to destroy</div>
+      </div>
+      <br>
+      <strong>Current Active Enemies:</strong> ${this.enemies.length}/${this.maxEnemiesOnField}
+    `;
+  }
+
+  getTerrainInfo() {
+    return `
+      <strong>Terrain Types:</strong><br>
+      <div style="margin-left: 10px;">
+        <div>🟫 <strong>Brick Walls:</strong> Destructible by tank shots</div>
+        <div>⬜ <strong>Steel Blocks:</strong> Indestructible barriers</div>
+        <div>🌲 <strong>Forest:</strong> Tanks can hide but bullets pass through</div>
+        <div>🌊 <strong>Water:</strong> Impassable for all tanks</div>
+        <div>❄️ <strong>Ice:</strong> Tanks slide and have reduced control</div>
+      </div>
+      <br>
+      <strong>Terrain Density:</strong> ${Math.round(
+        this.currentLevelConfig.terrainDensity * 100
+      )}%
+    `;
   }
 
   findBestDirection(enemy) {

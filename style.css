@@ -200,3 +200,37 @@ body {
 .powerup {
   background: #ff00ff;
 }
+
+.level-info,
+.enemy-info,
+.terrain-info,
+.powerup-info {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 5px;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-size: 0.85em;
+  line-height: 1.4;
+}
+
+.level-info h3,
+.enemy-info h3,
+.terrain-info h3,
+.powerup-info h3 {
+  color: #ffff00;
+  margin-bottom: 5px;
+  font-size: 1em;
+}
+
+.level-info div,
+.enemy-info div,
+.terrain-info div {
+  margin-bottom: 3px;
+}
+
+.enemy-info div div,
+.terrain-info div div {
+  margin-left: 10px;
+  font-size: 0.9em;
+}
