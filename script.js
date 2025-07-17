@@ -28,6 +28,10 @@ class Tank1990Game {
     this.keys = {};
     this.lastShot = 0;
     this.shotCooldown = 250; // milliseconds
+    this.spacePressed = false; // Track spacebar state
+
+    // Sound system
+    this.sounds = this.initSounds();
 
     // Enemy spawning - Updated for smaller grid, spawn inside borders
     this.enemySpawnPoints = [
@@ -43,8 +47,91 @@ class Tank1990Game {
     this.gameLoop();
   }
 
+  initSounds() {
+    // Create audio context for sound effects
+    const sounds = {};
+    
+    // Create simple sound effects using Web Audio API
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Shooting sound
+    sounds.shoot = () => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    };
+    
+    // Explosion sound
+    sounds.explode = () => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.3);
+      
+      gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    };
+    
+    // Hit sound
+    sounds.hit = () => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.15);
+      
+      gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+    };
+    
+    // Game over sound
+    sounds.gameOver = () => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 1.0);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.0);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 1.0);
+    };
+    
+    return sounds;
+  }
+
   initGame() {
     this.createPlayer();
+    this.createBase();
     this.generateLevel();
     this.enemyTanksRemaining = 20; // Always 20 enemies per level
     this.enemiesKilled = 0;
@@ -57,6 +144,18 @@ class Tank1990Game {
     }
 
     this.updateUI();
+  }
+
+  createBase() {
+    // Create the base (eagle) at the bottom center
+    this.base = {
+      x: 7 * this.tileSize, // Center horizontally
+      y: 14 * this.tileSize, // Second row from bottom
+      width: this.tileSize,
+      height: this.tileSize,
+      alive: true,
+      color: "#FFD700" // Gold color for the base
+    };
   }
 
   createPlayer() {
@@ -104,7 +203,8 @@ class Tank1990Game {
         (x >= 6 && x <= 8 && y >= 12) || // Player area
         (x <= 3 && y <= 3) || // Top-left enemy spawn area (expanded)
         (x >= 5 && x <= 9 && y <= 3) || // Top-center enemy spawn area (expanded)
-        (x >= 12 && y <= 3) // Top-right enemy spawn area (expanded)
+        (x >= 12 && y <= 3) || // Top-right enemy spawn area (expanded)
+        (x >= 5 && x <= 9 && y >= 13) // Base protection area
       ) {
         continue;
       }
@@ -130,6 +230,37 @@ class Tank1990Game {
         y: y * this.tileSize,
         type: selectedType,
       });
+    }
+
+    // Add brick protection around the base
+    const baseX = 7; // Base grid position
+    const baseY = 14;
+    
+    // Create brick walls around the base in a protective pattern
+    const brickPositions = [
+      // Top protection
+      { x: baseX - 1, y: baseY - 1 },
+      { x: baseX, y: baseY - 1 },
+      { x: baseX + 1, y: baseY - 1 },
+      // Left protection
+      { x: baseX - 1, y: baseY },
+      // Right protection
+      { x: baseX + 1, y: baseY },
+      // Additional side protection
+      { x: baseX - 2, y: baseY - 1 },
+      { x: baseX - 2, y: baseY },
+      { x: baseX + 2, y: baseY - 1 },
+      { x: baseX + 2, y: baseY }
+    ];
+    
+    for (let pos of brickPositions) {
+      if (pos.x >= 1 && pos.x <= 14 && pos.y >= 1 && pos.y <= 14) { // Stay within borders
+        this.walls.push({
+          x: pos.x * this.tileSize,
+          y: pos.y * this.tileSize,
+          type: "brick"
+        });
+      }
     }
   }
 
@@ -282,7 +413,9 @@ class Tank1990Game {
         this.restartGame();
       }
 
-      if (e.code === "Space") {
+      // Improved shooting mechanism - only shoot on initial key press
+      if (e.code === "Space" && !this.spacePressed) {
+        this.spacePressed = true;
         if (
           document.getElementById("levelComplete").classList.contains("hidden")
         ) {
@@ -304,6 +437,11 @@ class Tank1990Game {
       }
 
       this.keys[e.code] = false;
+      
+      // Reset spacebar state when key is released
+      if (e.code === "Space") {
+        this.spacePressed = false;
+      }
     });
   }
 
@@ -518,14 +656,17 @@ class Tank1990Game {
             case "brick":
               // Brick walls are destructible
               this.walls.splice(j, 1);
+              this.sounds.hit();
               hit = true;
               break;
             case "steel":
               // Steel walls are indestructible
+              this.sounds.hit();
               hit = true;
               break;
             case "concrete":
               // Concrete walls are indestructible but can be shot
+              this.sounds.hit();
               hit = true;
               break;
             case "water":
@@ -537,6 +678,7 @@ class Tank1990Game {
               if (Math.random() < 0.3) {
                 // 30% chance to destroy forest
                 this.walls.splice(j, 1);
+                this.sounds.hit();
               }
               // Bullet continues through forest
               break;
@@ -554,6 +696,9 @@ class Tank1990Game {
               enemy.health--;
               if (enemy.health <= 0) {
                 enemy.alive = false;
+                this.sounds.explode();
+              } else {
+                this.sounds.hit();
               }
               hit = true;
               break;
@@ -562,6 +707,15 @@ class Tank1990Game {
         } else {
           if (this.collision(bullet, this.player)) {
             this.player.alive = false;
+            this.sounds.explode();
+            hit = true;
+          }
+          
+          // Check collision with base
+          if (this.base && this.base.alive && this.collision(bullet, this.base)) {
+            this.base.alive = false;
+            this.sounds.explode();
+            this.gameOver(); // Game over if base is destroyed
             hit = true;
           }
         }
@@ -612,6 +766,9 @@ class Tank1990Game {
       owner: tank === this.player ? "player" : "enemy",
       color: "#ffff00",
     });
+
+    // Play shooting sound
+    this.sounds.shoot();
 
     this.lastShot = Date.now();
   }
@@ -786,6 +943,36 @@ class Tank1990Game {
       this.drawTank(this.player);
     }
 
+    // Draw base (eagle)
+    if (this.base && this.base.alive) {
+      this.ctx.fillStyle = this.base.color;
+      this.ctx.fillRect(this.base.x, this.base.y, this.base.width, this.base.height);
+      
+      // Draw eagle symbol
+      this.ctx.fillStyle = "#8B4513";
+      this.ctx.fillRect(this.base.x + 8, this.base.y + 8, 24, 8);
+      this.ctx.fillRect(this.base.x + 16, this.base.y + 16, 8, 16);
+      
+      // Add outline
+      this.ctx.strokeStyle = "#000";
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(this.base.x, this.base.y, this.base.width, this.base.height);
+    } else if (this.base && !this.base.alive) {
+      // Draw destroyed base
+      this.ctx.fillStyle = "#8B0000";
+      this.ctx.fillRect(this.base.x, this.base.y, this.base.width, this.base.height);
+      
+      // Draw "X" over destroyed base
+      this.ctx.strokeStyle = "#FF0000";
+      this.ctx.lineWidth = 4;
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.base.x, this.base.y);
+      this.ctx.lineTo(this.base.x + this.base.width, this.base.y + this.base.height);
+      this.ctx.moveTo(this.base.x + this.base.width, this.base.y);
+      this.ctx.lineTo(this.base.x, this.base.y + this.base.height);
+      this.ctx.stroke();
+    }
+
     // Draw enemies
     for (let enemy of this.enemies) {
       if (enemy.alive) {
@@ -906,6 +1093,7 @@ class Tank1990Game {
     document.getElementById("levelComplete").classList.add("hidden");
     this.enemies = [];
     this.bullets = [];
+    this.createBase(); // Recreate base for new level
     this.generateLevel();
     this.enemyTanksRemaining = 20; // Always 20 enemies per level
     this.enemiesKilled = 0;
@@ -916,6 +1104,7 @@ class Tank1990Game {
 
   gameOver() {
     this.gameRunning = false;
+    this.sounds.gameOver();
     document.getElementById("gameOver").classList.remove("hidden");
   }
 
@@ -926,6 +1115,7 @@ class Tank1990Game {
     this.enemies = [];
     this.bullets = [];
     this.powerUps = [];
+    this.spacePressed = false;
 
     document.getElementById("gameOver").classList.add("hidden");
     document.getElementById("levelComplete").classList.add("hidden");
